@@ -11,7 +11,12 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.ImageFormat
 import android.graphics.Rect
+import android.graphics.RectF
+import android.graphics.Matrix
+import android.graphics.Canvas
+import android.graphics.Bitmap
 import android.graphics.SurfaceTexture
+import com.bumptech.glide.Glide
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
@@ -63,10 +68,21 @@ class CameraActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "CameraActivity"
         private const val REQUEST_PERMISSIONS = 1001
-        private val REQUIRED_PERMISSIONS = arrayOf(
-            Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO
-        )
+        private val REQUIRED_PERMISSIONS = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(
+                Manifest.permission.CAMERA,
+                Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO
+            )
+        } else {
+            arrayOf(
+                Manifest.permission.CAMERA,
+                Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            )
+        }
     }
 
     private lateinit var binding: ActivityCameraBinding
@@ -272,6 +288,16 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun getCameraId(isRear: Boolean): String {
+        if (isRear) {
+            cameraManager!!.cameraIdList.forEach { id ->
+                val characteristics = cameraManager!!.getCameraCharacteristics(id)
+                val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
+                val hasFlash = characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) ?: false
+                if (facing == CameraCharacteristics.LENS_FACING_BACK && hasFlash) {
+                    return id
+                }
+            }
+        }
         cameraManager!!.cameraIdList.forEach { id ->
             val characteristics = cameraManager!!.getCameraCharacteristics(id)
             val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
@@ -281,7 +307,51 @@ class CameraActivity : AppCompatActivity() {
                 return id
             }
         }
-        return "0"
+        return if (isRear) "0" else "1"
+    }
+
+    private fun getCorrectedBitmap(capturedBmp: Bitmap?): Bitmap? {
+        if (capturedBmp == null) return null
+        try {
+            val isRear = viewModel.isRearCamera.value ?: true
+            
+            // We want the output to be in portrait 9:16 aspect ratio (e.g., 1080 width, 1920 height)
+            val targetWidth = 1080
+            val targetHeight = 1920
+            
+            val outputBmp = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(outputBmp)
+            
+            val srcRect = RectF(0f, 0f, capturedBmp.width.toFloat(), capturedBmp.height.toFloat())
+            val destRect = RectF(0f, 0f, targetWidth.toFloat(), targetHeight.toFloat())
+            
+            val matrix = Matrix()
+            if (capturedBmp.width > capturedBmp.height) {
+                // Landscape source. Need to rotate!
+                val rotation = if (isRear) 90f else 270f
+                matrix.postRotate(rotation, capturedBmp.width / 2f, capturedBmp.height / 2f)
+            }
+            
+            // Mirror horizontally if front-facing selfie
+            if (!isRear) {
+                matrix.postScale(-1f, 1f, capturedBmp.width / 2f, capturedBmp.height / 2f)
+            }
+            
+            // Find rotated/mirrored bounds
+            val rotatedBounds = RectF()
+            matrix.mapRect(rotatedBounds, srcRect)
+            
+            // Map those bounds to exactly fill the target 1080x1920 viewport
+            val mapMatrix = Matrix()
+            mapMatrix.setRectToRect(rotatedBounds, destRect, Matrix.ScaleToFit.CENTER)
+            matrix.postConcat(mapMatrix)
+            
+            canvas.drawBitmap(capturedBmp, matrix, null)
+            return outputBmp
+        } catch (e: Exception) {
+            Log.e(TAG, "Error correcting bitmap aspect ratio and rotation", e)
+            return capturedBmp
+        }
     }
 
     private val cameraStateCallback = object : CameraDevice.StateCallback() {
@@ -1157,7 +1227,7 @@ class CameraActivity : AppCompatActivity() {
         }, 0, 150)
     }
 
-    private fun saveHdrPhoto(capturedBmp: android.graphics.Bitmap?) {
+    private fun saveHdrPhoto(capturedBmp: Bitmap?) {
         Toast.makeText(this, "Saving HDR image DCIM...", Toast.LENGTH_SHORT).show()
         backgroundHandler?.post {
             try {
@@ -1165,15 +1235,16 @@ class CameraActivity : AppCompatActivity() {
                 val imageFile = File(getExternalFilesDir(null), "HDR_$timeStamp.jpg")
                 val fos = FileOutputStream(imageFile)
 
+                val correctedBmp = getCorrectedBitmap(capturedBmp)
                 // High fidelity HDR fusion representation
-                val bmp = android.graphics.Bitmap.createBitmap(1920, 1080, android.graphics.Bitmap.Config.ARGB_8888)
-                val canvas = android.graphics.Canvas(bmp)
+                val bmp = Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
                 
-                if (capturedBmp != null) {
+                if (correctedBmp != null) {
                     // Draw original captured image scaled to fill
-                    val srcRect = android.graphics.Rect(0, 0, capturedBmp.width, capturedBmp.height)
-                    val destRect = android.graphics.Rect(0, 0, 1920, 1080)
-                    canvas.drawBitmap(capturedBmp, srcRect, destRect, null)
+                    val srcRect = android.graphics.Rect(0, 0, correctedBmp.width, correctedBmp.height)
+                    val destRect = android.graphics.Rect(0, 0, 1080, 1920)
+                    canvas.drawBitmap(correctedBmp, srcRect, destRect, null)
                     
                     // Draw a semi-transparent colorful gradient overlay to represent advanced multi-DR exposure fusion details
                     val paint = android.graphics.Paint().apply {
@@ -1181,38 +1252,44 @@ class CameraActivity : AppCompatActivity() {
                         alpha = 80 // overlay intensity
                     }
                     val lg = android.graphics.LinearGradient(
-                        0f, 0f, 1920f, 1080f,
+                        0f, 0f, 1080f, 1920f,
                         intArrayOf(Color.parseColor("#4000E5FF"), Color.parseColor("#00000000"), Color.parseColor("#40FF8000")),
                         null, android.graphics.Shader.TileMode.CLAMP
                     )
                     paint.shader = lg
-                    canvas.drawRect(0f, 0f, 1920f, 1080f, paint)
+                    canvas.drawRect(0f, 0f, 1080f, 1920f, paint)
                 } else {
                     // Fallback stylized base gradient to simulate rich colors
                     val paint = android.graphics.Paint()
                     val lg = android.graphics.LinearGradient(
-                        0f, 0f, 1920f, 1080f,
+                        0f, 0f, 1080f, 1920f,
                         intArrayOf(Color.parseColor("#FF0F172A"), Color.parseColor("#FF1E293B"), Color.parseColor("#FF00E5FF")),
                         null, android.graphics.Shader.TileMode.CLAMP
                     )
                     paint.shader = lg
-                    canvas.drawRect(0f, 0f, 1920f, 1080f, paint)
+                    canvas.drawRect(0f, 0f, 1080f, 1920f, paint)
                 }
 
-                bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 98, fos)
+                bmp.compress(Bitmap.CompressFormat.JPEG, 98, fos)
                 fos.close()
 
                 // Insert into system MediaStore
                 val values = android.content.ContentValues().apply {
                     put(MediaStore.Images.Media.DISPLAY_NAME, "HDR_$timeStamp.jpg")
                     put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                    put(MediaStore.Images.Media.RELATIVE_PATH, "DCIM/AitoxCamera")
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        put(MediaStore.Images.Media.RELATIVE_PATH, "DCIM/AitoxCamera")
+                    }
                 }
                 val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                 if (uri != null) {
                     contentResolver.openOutputStream(uri)?.use { os ->
-                        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 98, os)
+                        bmp.compress(Bitmap.CompressFormat.JPEG, 98, os)
                     }
+                    
+                    val mediaScanIntent = Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
+                    mediaScanIntent.data = uri
+                    sendBroadcast(mediaScanIntent)
                 }
 
                 runOnUiThread {
@@ -1237,44 +1314,88 @@ class CameraActivity : AppCompatActivity() {
 
         Toast.makeText(this, "Capturing beautiful 50MP shot...", Toast.LENGTH_SHORT).show()
         
-        // Grab viewfinder bitmap at the moment of capture (UI thread)
-        val capturedBmp = binding.viewfinder.bitmap
+        val originalFlashMode = viewModel.flashMode.value ?: CameraViewModel.FlashMode.AUTO
+        val isRear = viewModel.isRearCamera.value ?: true
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
 
-        // Simulative image output saved into local sandbox
-        backgroundHandler?.post {
-            try {
-                val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-                val imageFile = File(getExternalFilesDir(null), "IMG_$timeStamp.jpg")
-                val fos = FileOutputStream(imageFile)
-                
-                // If viewfinder bitmap is available, use it; otherwise draw fallback
-                val bmp = capturedBmp ?: android.graphics.Bitmap.createBitmap(1920, 1080, android.graphics.Bitmap.Config.ARGB_8888).apply {
-                    val canvas = android.graphics.Canvas(this)
-                    canvas.drawColor(Color.parseColor("#FF0A0A0C"))
+        if (originalFlashMode == CameraViewModel.FlashMode.ON && isRear) {
+            // Turn on flash torch temporarily to light up the scene for the screenshot capture
+            val builder = previewRequestBuilder
+            val session = captureSession
+            if (builder != null && session != null) {
+                try {
+                    builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                    builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH)
+                    session.setRepeatingRequest(builder.build(), null, backgroundHandler)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Temporary torch flash failed to initiate.", e)
                 }
-
-                bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, fos)
-                fos.close()
-
-                // Insert into system MediaStore (Images query)
-                val values = android.content.ContentValues().apply {
-                    put(MediaStore.Images.Media.DISPLAY_NAME, "IMG_$timeStamp.jpg")
-                    put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                    put(MediaStore.Images.Media.RELATIVE_PATH, "DCIM/AitoxCamera")
-                }
-                val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                if (uri != null) {
-                    contentResolver.openOutputStream(uri)?.use { os ->
-                        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, os)
+            }
+            
+            // Wait 250ms for flash to fire and AE to adapt before snapping!
+            backgroundHandler?.postDelayed({
+                runOnUiThread {
+                    val capturedBmp = binding.viewfinder.bitmap
+                    // Restore original flash setting in preview
+                    updatePreview()
+                    
+                    backgroundHandler?.post {
+                        saveCapturedNormalImage(capturedBmp, timeStamp)
                     }
                 }
+            }, 250)
+        } else {
+            // No flash needed or front camera
+            val capturedBmp = binding.viewfinder.bitmap
+            backgroundHandler?.post {
+                saveCapturedNormalImage(capturedBmp, timeStamp)
+            }
+        }
+    }
 
-                runOnUiThread {
-                    Toast.makeText(this@CameraActivity, "Photo saved: DCIM/AitoxCamera", Toast.LENGTH_SHORT).show()
-                    loadLatestThumbnail()
+    private fun saveCapturedNormalImage(capturedBmp: Bitmap?, timeStamp: String) {
+        try {
+            val imageFile = File(getExternalFilesDir(null), "IMG_$timeStamp.jpg")
+            val fos = FileOutputStream(imageFile)
+            
+            val correctedBmp = getCorrectedBitmap(capturedBmp)
+            // If viewfinder bitmap is available, use it; otherwise draw fallback
+            val bmp = correctedBmp ?: Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888).apply {
+                val canvas = Canvas(this)
+                canvas.drawColor(Color.parseColor("#FF0A0A0C"))
+            }
+
+            bmp.compress(Bitmap.CompressFormat.JPEG, 95, fos)
+            fos.close()
+
+            // Insert into system MediaStore (Images query)
+            val values = android.content.ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, "IMG_$timeStamp.jpg")
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    put(MediaStore.Images.Media.RELATIVE_PATH, "DCIM/AitoxCamera")
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Image writing failed.", e)
+            }
+            val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            if (uri != null) {
+                contentResolver.openOutputStream(uri)?.use { os ->
+                    bmp.compress(Bitmap.CompressFormat.JPEG, 95, os)
+                }
+                
+                // Refresh device Gallery/Album cache
+                val mediaScanIntent = Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
+                mediaScanIntent.data = uri
+                sendBroadcast(mediaScanIntent)
+            }
+
+            runOnUiThread {
+                Toast.makeText(this@CameraActivity, "Photo saved: DCIM/AitoxCamera", Toast.LENGTH_SHORT).show()
+                loadLatestThumbnail()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Image writing failed.", e)
+            runOnUiThread {
+                Toast.makeText(this@CameraActivity, "Error saving photo: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -1361,7 +1482,9 @@ class CameraActivity : AppCompatActivity() {
         val values = android.content.ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, "VID_$timeStamp.mp4")
             put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-            put(MediaStore.Video.Media.RELATIVE_PATH, "DCIM/AitoxCamera")
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                put(MediaStore.Video.Media.RELATIVE_PATH, "DCIM/AitoxCamera")
+            }
         }
         try {
             val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
@@ -1381,16 +1504,12 @@ class CameraActivity : AppCompatActivity() {
     private fun loadLatestThumbnail() {
         val latestUri = GalleryHelper.getLastSavedMediaUri(this)
         if (latestUri != null) {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                try {
-                    val thumb = contentResolver.loadThumbnail(latestUri, android.util.Size(120, 120), null)
-                    binding.imgGalleryThumbnail.setImageBitmap(thumb)
-                } catch (e: Exception) {
-                    binding.imgGalleryThumbnail.setImageURI(latestUri)
-                }
-            } else {
-                binding.imgGalleryThumbnail.setImageURI(latestUri)
-            }
+            Glide.with(this)
+                .load(latestUri)
+                .placeholder(R.drawable.ic_launcher_background)
+                .error(R.drawable.ic_launcher_background)
+                .centerCrop()
+                .into(binding.imgGalleryThumbnail)
         } else {
             binding.imgGalleryThumbnail.setImageResource(R.drawable.ic_launcher_background)
         }
