@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_frosted_glass_bottom"
+    android:padding="20dp">
+
+    <!-- Handle Bar -->
+    <View
+        android:layout_width="48dp"
+        android:layout_height="4dp"
+        android:background="#50FFFFFF"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="QUICK CAPTURE CONTROLS"
+        android:textColor="#00E5FF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.1"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Resolution Selector Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="10dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Resolution &amp; Quality"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp" />
+
+        <RadioGroup
+            android:id="@+id/rgQuickResolution"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/rbQuick4K"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="4K"
+                android:textColor="#FFFFFF"
+                android:buttonTint="#00E5FF"
+                android:layout_marginEnd="8dp" />
+
+            <RadioButton
+                android:id="@+id/rbQuick1080p"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1080p"
+                android:textColor="#FFFFFF"
+                android:buttonTint="#00E5FF" />
+            
+        </RadioGroup>
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#20FFFFFF" />
+
+    <!-- Grid Layout Toggle Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="10dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Composition Grid Lines"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchQuickGrid"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:thumbTint="#00E5FF"
+            app:trackTint="#3000E5FF" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#20FFFFFF" />
+
+    <!-- AI Overlay active toggle -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="10dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="AI Object Detection Bboxes"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchQuickAi"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:thumbTint="#00E5FF"
+            app:trackTint="#3000E5FF" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#20FFFFFF" />
+
+    <!-- HDR Switch Toggle Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="10dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="HDR Mode (Rear Photo)"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchQuickHdr"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:thumbTint="#00E5FF"
+            app:trackTint="#3000E5FF" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#20FFFFFF" />
+
+    <!-- Flash Mode Selector Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingVertical="10dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Flash Behavior"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="4">
+
+            <Button
+                android:id="@+id/btnQuickFlashAuto"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="AUTO"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_frosted_glass_button"
+                app:backgroundTint="@null"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnQuickFlashOn"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="ON"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_frosted_glass_button"
+                app:backgroundTint="@null"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnQuickFlashOff"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="OFF"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_frosted_glass_button"
+                app:backgroundTint="@null"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnQuickFlashTorch"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="TORCH"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_frosted_glass_button"
+                app:backgroundTint="@null" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

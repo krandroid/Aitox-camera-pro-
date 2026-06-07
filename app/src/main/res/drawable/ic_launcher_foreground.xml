@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Subtle Letter 'A' in the center background -->
+    <path
+        android:pathData="M42,66 L54,34 L66,66 M45,58 L63,58"
+        android:strokeColor="#1F00E5FF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- 7-Blade Camera Lens Outer Ring -->
+    <path
+        android:pathData="M54,54 m-28,0 a28,28 0 1,1 56,0 a28,28 0 1,1 -56,0"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="3"/>
+    <path
+        android:pathData="M54,54 m-22,0 a22,22 0 1,1 44,0 a22,22 0 1,1 -44,0"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1"/>
+
+    <!-- 7 Blades -->
+    <path
+        android:pathData="M54,26 L44,44"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="1"/>
+    <path
+        android:pathData="M78,41 L59,45"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="1"/>
+    <path
+        android:pathData="M74,68 L58,58"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="1"/>
+    <path
+        android:pathData="M54,82 L50,60"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="1"/>
+    <path
+        android:pathData="M34,68 L48,52"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="1"/>
+    <path
+        android:pathData="M30,41 L48,45"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="1"/>
+    <path
+        android:pathData="M44,28 L52,40"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="1"/>
+
+    <!-- Inner Aperture Reflection -->
+    <path
+        android:pathData="M54,54 m-10,0 a10,10 0 1,1 20,0 a10,10 0 1,1 -20,0"
+        android:fillColor="#1A00E5FF" />
+    <path
+        android:pathData="M46,46 A 11,11 0 0,1 62,46"
+        android:strokeColor="#80FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"/>
+
+    <!-- Cyan AI Sparkles / Particles -->
+    <path
+        android:pathData="M24,24 A2,2 0 1,1 24,20 A2,2 0 1,1 24,24 Z"
+        android:fillColor="#00E5FF" />
+    <path
+        android:pathData="M84,24 A2,2 0 1,1 84,20 A2,2 0 1,1 84,24 Z"
+        android:fillColor="#00E5FF" />
+    <path
+        android:pathData="M20,76 A2,2 0 1,1 20,72 A2,2 0 1,1 20,76 Z"
+        android:fillColor="#00E5FF" />
+    <path
+        android:pathData="M88,72 A2,2 0 1,1 88,68 A2,2 0 1,1 88,72 Z"
+        android:fillColor="#00E5FF" />
+    <path
+        android:pathData="M54,14 A1.5,1.5 0 1,1 54,11 A1.5,1.5 0 1,1 54,14 Z"
+        android:fillColor="#FFFFFFFF" />
+</vector>

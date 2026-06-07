@@ -1,0 +1,630 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/cameraRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    tools:context=".ui.CameraActivity">
+
+    <!-- Direct Fullscreen Viewfinder -->
+    <TextureView
+        android:id="@+id/viewfinder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- 3x3 Composition Grid Overlay -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layGrid"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Horizontal lines -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#4DFFFFFF"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.33" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#4DFFFFFF"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.66" />
+
+        <!-- Vertical lines -->
+        <View
+            android:layout_width="1dp"
+            android:layout_height="match_parent"
+            android:background="#4DFFFFFF"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintHorizontal_bias="0.33" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="match_parent"
+            android:background="#4DFFFFFF"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintHorizontal_bias="0.66" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Custom View for AI Detektor bounding boxes -->
+    <com.example.ui.AiOverlayView
+        android:id="@+id/aiOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Yellow touch-to-focus indicators -->
+    <View
+        android:id="@+id/focusIndicator"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:background="@android:color/transparent"
+        android:alpha="0.0"
+        android:scaleX="1.5"
+        android:scaleY="1.5"
+        android:backgroundTint="#FFD600"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:alpha="1"
+        tools:layout_marginLeft="150dp"
+        tools:layout_marginTop="250dp" />
+
+    <!-- Screen Flash Overlay -->
+    <View
+        android:id="@+id/screenFlashOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FFFFFF"
+        android:alpha="0.0" />
+
+    <!-- Progress UI (like mode averaging, "Hold steady", and countdown) -->
+    <LinearLayout
+        android:id="@+id/progressContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone"
+        tools:visibility="visible"
+        android:background="@drawable/bg_frosted_glass_card"
+        android:padding="24dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/txtProgressStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Hold steady"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05"
+            android:layout_marginBottom="12dp"/>
+
+        <ProgressBar
+            android:id="@+id/nightProgressBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="160dp"
+            android:layout_height="6dp"
+            android:indeterminate="false"
+            android:progressTint="#00E5FF"
+            android:progressBackgroundTint="#30FFFFFF"
+            android:max="100" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtCountdown"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#00E5FF"
+        android:textSize="80sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="3"
+        tools:visibility="visible" />
+
+    <!-- TOP HEADER CONTROL PANEL (Glassmorphism layout) -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@drawable/bg_frosted_glass_top"
+        android:padding="16dp"
+        android:gravity="center_vertical"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Info Badges container inside status bar -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Dynamic resolution frame rate badge and REC blinking indicator -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:id="@+id/recIndicatorDot"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:background="#FF0000"
+                    android:layout_marginEnd="6dp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/badgeResolutionFps"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_frosted_glass_tag"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="5dp"
+                    android:text="PHOTO binned"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/badgeRecStats"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_frosted_glass_tag"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:text="EIS·H.265·150Mbps"
+                android:textColor="#00E5FF"
+                android:textSize="9sp"
+                android:visibility="gone"/>
+        </LinearLayout>
+
+        <!-- Flash toggle button -->
+        <ImageButton
+            android:id="@+id/btnFlash"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_flash_auto"
+            app:tint="#FFFFFF"
+            android:contentDescription="Flash Toggle" />
+
+        <!-- Timer circular selection button -->
+        <TextView
+            android:id="@+id/txtTimerLabel"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="12dp"
+            android:background="@drawable/bg_frosted_glass_card_light"
+            android:gravity="center"
+            android:text="OFF"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:contentDescription="Timer Toggle" />
+
+        <!-- AI quick stars toggle -->
+        <ImageButton
+            android:id="@+id/btnAiStars"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_ai_stars"
+            app:tint="#808080"
+            android:contentDescription="AI Detection Sparkles" />
+
+        <!-- Full settings activity opener cog -->
+        <ImageButton
+            android:id="@+id/btnSettings"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_settings_cog"
+            app:tint="#FFFFFF"
+            android:contentDescription="Open Settings" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtRecTimer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="00:00:00"
+        android:textColor="#FF1744"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginTop="12dp"
+        android:visibility="gone"
+        android:background="#D1000000"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="4dp"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/topBar"
+        tools:visibility="visible" />
+
+    <!-- SIDE/FLOATING EXPANDED ZOOM CONTROL -->
+    <LinearLayout
+        android:id="@+id/layZoomIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:layout_marginStart="16dp"
+        android:background="@drawable/bg_frosted_glass_card"
+        android:padding="12dp"
+        app:layout_constraintBottom_toTopOf="@id/bottomController"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/topBar"
+        app:layout_constraintVertical_bias="0.8">
+
+        <TextView
+            android:id="@+id/txtZoomLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1.0x"
+            android:textColor="#00E5FF"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_frosted_glass_tag"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="5dp"
+            android:layout_marginBottom="8dp" />
+
+        <SeekBar
+            android:id="@+id/sliderZoom"
+            android:layout_width="140dp"
+            android:layout_height="24dp"
+            android:max="90"
+            android:progress="0"
+            android:progressTint="#00E5FF"
+            android:thumbTint="#FFFFFF"
+            android:rotation="270"
+            android:layout_marginVertical="60dp" />
+
+    </LinearLayout>
+
+    <!-- PRO MODE MANUAL CONTROLS PANEL -->
+    <LinearLayout
+        android:id="@+id/layProControls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_frosted_glass_card"
+        android:padding="12dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/bottomController"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        tools:visibility="visible">
+
+        <!-- Tab Row Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="8dp">
+
+            <!-- Shutter Speed -->
+            <TextView
+                android:id="@+id/tvProShutterTab"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="SHUTTER"
+                android:textColor="#00E5FF"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingVertical="4dp" />
+
+            <!-- ISO -->
+            <TextView
+                android:id="@+id/tvProIsoTab"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="ISO"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingVertical="4dp"/>
+
+            <!-- WB -->
+            <TextView
+                android:id="@+id/tvProWbTab"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="WB"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingVertical="4dp" />
+
+            <!-- Focus -->
+            <TextView
+                android:id="@+id/tvProFocusTab"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="FOCUS"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingVertical="4dp" />
+        </LinearLayout>
+
+        <!-- Current Control Spec Slider -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="4dp">
+
+            <!-- Selected Value Text Badge -->
+            <TextView
+                android:id="@+id/tvProVal"
+                android:layout_width="84dp"
+                android:layout_height="wrap_content"
+                android:text="AUTO"
+                android:textColor="#00E5FF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:background="@drawable/bg_frosted_glass_tag"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="6dp" />
+
+            <!-- Slider -->
+            <SeekBar
+                android:id="@+id/barProVal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="11"
+                android:progress="0"
+                android:progressTint="#00E5FF"
+                android:thumbTint="#FFFFFF"
+                android:paddingHorizontal="12dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- PREMIUM BOTTOM GLASSMORPHISM PANEL -->
+    <LinearLayout
+        android:id="@+id/bottomController"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_frosted_glass_bottom"
+        android:paddingBottom="42dp"
+        android:paddingTop="16dp"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <!-- HORIZONTAL CAROUSEL MODE SELECTOR (Scrollable/Horizontal scrolling) -->
+        <HorizontalScrollView
+            android:id="@+id/scrollerModes"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:scrollbars="none"
+            android:overScrollMode="never"
+            android:layout_marginBottom="20dp">
+
+            <LinearLayout
+                android:id="@+id/layModesContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:paddingHorizontal="40dp"
+                android:gravity="center_vertical">
+
+                <!-- 5 Ikon Bulat Bulat / Item Mode -->
+                <!-- PRO -->
+                <TextView
+                    android:id="@+id/modePro"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="PRO"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:paddingHorizontal="18dp"
+                    android:letterSpacing="0.1"/>
+
+                <!-- VIDEO -->
+                <TextView
+                    android:id="@+id/modeVideo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="VIDEO"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:paddingHorizontal="18dp"
+                    android:letterSpacing="0.1"/>
+
+                <!-- PHOTO -->
+                <TextView
+                    android:id="@+id/modePhoto"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="PHOTO"
+                    android:textColor="#00E5FF"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:paddingHorizontal="18dp"
+                    android:letterSpacing="0.1" />
+
+                <!-- NIGHT -->
+                <TextView
+                    android:id="@+id/modeNight"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="NIGHT"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:paddingHorizontal="18dp"
+                    android:letterSpacing="0.1" />
+
+                <!-- AI EDITOR -->
+                <TextView
+                    android:id="@+id/modeAiEditor"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="AI EDITOR"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:paddingHorizontal="18dp"
+                    android:letterSpacing="0.1" />
+
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- PRIMER SHUTTER ROW -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="32dp">
+
+            <!-- Left: Rounded Gallery Switcher Thumbnail -->
+            <FrameLayout
+                android:id="@+id/btnGallery"
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:background="@android:color/transparent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintLeft_toLeftOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <!-- Rounded ImageView with border -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center"
+                    app:cardCornerRadius="24dp"
+                    app:cardBackgroundColor="#20FFFFFF"
+                    app:cardElevation="0dp">
+
+                    <ImageView
+                        android:id="@+id/imgGalleryThumbnail"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/ic_launcher_background"
+                        android:contentDescription="Galeri Thumbnail" />
+
+                </androidx.cardview.widget.CardView>
+
+                <!-- Thin white stroke around the round launcher border -->
+                <View
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    android:layout_gravity="center"
+                    android:background="@android:color/transparent" />
+
+            </FrameLayout>
+
+            <!-- Center: Premium Custom Shutter button -->
+            <FrameLayout
+                android:id="@+id/btnShutterFrame"
+                android:layout_width="84dp"
+                android:layout_height="84dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintLeft_toLeftOf="parent"
+                app:layout_constraintRight_toRightOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <!-- Outer circle 3dp -->
+                <View
+                    android:id="@+id/shutterOuter"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:layout_gravity="center" />
+
+                <!-- Inner filling -->
+                <View
+                    android:id="@+id/shutterInner"
+                    android:layout_width="66dp"
+                    android:layout_height="66dp"
+                    android:layout_gravity="center" />
+
+            </FrameLayout>
+
+            <!-- Right: Lens Flipping Trigger -->
+            <ImageButton
+                android:id="@+id/btnSwitchCamera"
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_camera_switch"
+                app:tint="#FFFFFF"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintRight_toRightOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                android:contentDescription="Switch Rear/Front Lenses" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Tap target guidance -->
+        <TextView
+            android:id="@+id/txtSwipeIndicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="8dp"
+            android:text="Swipe horizontally to change lens"
+            android:textColor="#3DFFFFFF"
+            android:textSize="9sp"/>
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

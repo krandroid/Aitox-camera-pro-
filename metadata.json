@@ -1,0 +1,6 @@
+{
+  "name": "Aitox Camera",
+  "description": "Professional Camera2 application for premium devices featuring high-bitrate video recording, manual controls, and NPU pipeline simulation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
