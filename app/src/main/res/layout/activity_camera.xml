@@ -285,9 +285,9 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center_horizontal"
-        android:layout_marginStart="16dp"
+        android:layout_marginStart="12dp"
         android:background="@drawable/bg_frosted_glass_card"
-        android:padding="12dp"
+        android:padding="6dp"
         app:layout_constraintBottom_toTopOf="@id/bottomController"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintTop_toBottomOf="@id/topBar"
@@ -299,23 +299,23 @@
             android:layout_height="wrap_content"
             android:text="1.0x"
             android:textColor="#00E5FF"
-            android:textSize="14sp"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:background="@drawable/bg_frosted_glass_tag"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="5dp"
-            android:layout_marginBottom="8dp" />
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="3dp"
+            android:layout_marginBottom="4dp" />
 
         <SeekBar
             android:id="@+id/sliderZoom"
-            android:layout_width="140dp"
-            android:layout_height="24dp"
+            android:layout_width="100dp"
+            android:layout_height="20dp"
             android:max="90"
             android:progress="0"
             android:progressTint="#00E5FF"
             android:thumbTint="#FFFFFF"
             android:rotation="270"
-            android:layout_marginVertical="60dp" />
+            android:layout_marginVertical="30dp" />
 
     </LinearLayout>
 

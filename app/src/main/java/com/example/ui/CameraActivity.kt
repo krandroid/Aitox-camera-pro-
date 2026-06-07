@@ -320,6 +320,60 @@ class CameraActivity : AppCompatActivity() {
         }
     }
 
+    private fun recreateSessionForVideo(recorderSurface: Surface) {
+        val device = cameraDevice ?: return
+        try {
+            captureSession?.close()
+            captureSession = null
+
+            val texture = binding.viewfinder.surfaceTexture ?: return
+            texture.setDefaultBufferSize(1920, 1080)
+            val previewSurface = Surface(texture)
+
+            previewRequestBuilder = device.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
+                addTarget(previewSurface)
+                addTarget(recorderSurface)
+                if (imageReader != null) {
+                    addTarget(imageReader!!.surface)
+                }
+                
+                set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                
+                val zoom = viewModel.zoomMultiplier.value ?: 1.0f
+                applyZoomRequestBuilder(this, zoom)
+                
+                val flash = viewModel.flashMode.value ?: CameraViewModel.FlashMode.AUTO
+                applyFlashSettings(this, flash)
+            }
+
+            val targets = mutableListOf(previewSurface, recorderSurface)
+            if (imageReader != null) {
+                targets.add(imageReader!!.surface)
+            }
+
+            device.createCaptureSession(targets, object : CameraCaptureSession.StateCallback() {
+                override fun onConfigured(session: CameraCaptureSession) {
+                    captureSession = session
+                    try {
+                        val builder = previewRequestBuilder
+                        if (builder != null) {
+                            session.setRepeatingRequest(builder.build(), null, backgroundHandler)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed setting video repeating request", e)
+                    }
+                }
+
+                override fun onConfigureFailed(session: CameraCaptureSession) {
+                    Log.e(TAG, "Video capture session configuration failed.")
+                }
+            }, backgroundHandler)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to recreate video session", e)
+        }
+    }
+
     private fun updatePreview() {
         val builder = previewRequestBuilder ?: return
         val session = captureSession ?: return
@@ -1216,9 +1270,13 @@ class CameraActivity : AppCompatActivity() {
             val fps = 60
             val bitrate = if (isRear) 150 else 50
 
-            videoRecorder?.prepare(
+            val recorderSurface = videoRecorder?.prepare(
                 videoFile, isRear, width, height, fps, bitrate, useH265Pref, useEisPref
             )
+
+            if (recorderSurface != null) {
+                recreateSessionForVideo(recorderSurface)
+            }
 
             videoRecorder?.start()
             viewModel.setRecording(true)
@@ -1270,13 +1328,23 @@ class CameraActivity : AppCompatActivity() {
             Log.e(TAG, "Video insertion error.", e)
         }
 
+        createCameraSession()
         loadLatestThumbnail()
     }
 
     private fun loadLatestThumbnail() {
         val latestUri = GalleryHelper.getLastSavedMediaUri(this)
         if (latestUri != null) {
-            binding.imgGalleryThumbnail.setImageURI(latestUri)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                try {
+                    val thumb = contentResolver.loadThumbnail(latestUri, android.util.Size(120, 120), null)
+                    binding.imgGalleryThumbnail.setImageBitmap(thumb)
+                } catch (e: Exception) {
+                    binding.imgGalleryThumbnail.setImageURI(latestUri)
+                }
+            } else {
+                binding.imgGalleryThumbnail.setImageURI(latestUri)
+            }
         } else {
             binding.imgGalleryThumbnail.setImageResource(R.drawable.ic_launcher_background)
         }

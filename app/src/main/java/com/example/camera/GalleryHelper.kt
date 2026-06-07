@@ -31,7 +31,8 @@ object GalleryHelper {
 
         for (baseUri in targets) {
             try {
-                context.contentResolver.query(baseUri, projection, null, null, sortOrder)?.use { cursor ->
+                val selection = "${MediaStore.MediaColumns.SIZE} > 0"
+                context.contentResolver.query(baseUri, projection, selection, null, sortOrder)?.use { cursor ->
                     if (cursor.moveToFirst()) {
                         val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
                         val dateCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED)
