@@ -205,11 +205,43 @@ class CameraActivity : AppCompatActivity() {
         }
     }
 
+    private fun configureTransform(viewWidth: Int, viewHeight: Int) {
+        if (viewWidth <= 0 || viewHeight <= 0) return
+        val matrix = android.graphics.Matrix()
+        
+        // Preview is configured to 1920x1080 (landscape 16:9), which is 1080x1920 in portrait
+        val previewWidth = 1080f
+        val previewHeight = 1920f
+
+        val centerX = viewWidth / 2f
+        val centerY = viewHeight / 2f
+
+        val viewRatio = viewWidth.toFloat() / viewHeight.toFloat()
+        val previewRatio = previewWidth / previewHeight
+
+        var scaleX = 1f
+        var scaleY = 1f
+
+        if (viewRatio > previewRatio) {
+            scaleX = 1f
+            scaleY = (viewWidth.toFloat() / previewWidth) * (previewHeight / viewHeight)
+        } else {
+            scaleX = (viewHeight.toFloat() / previewHeight) * (previewWidth / viewWidth)
+            scaleY = 1f
+        }
+
+        matrix.setScale(scaleX, scaleY, centerX, centerY)
+        binding.viewfinder.setTransform(matrix)
+    }
+
     private val textureListener = object : TextureView.SurfaceTextureListener {
         override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+            configureTransform(width, height)
             openCamera()
         }
-        override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
+        override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
+            configureTransform(width, height)
+        }
         override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
         override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
     }
@@ -220,6 +252,9 @@ class CameraActivity : AppCompatActivity() {
         }
         
         try {
+            // Apply proper transform scaling to prevent stretched previews (long face issues)
+            configureTransform(binding.viewfinder.width, binding.viewfinder.height)
+
             // Pick camera ID based on rear/front setting
             val isRear = viewModel.isRearCamera.value ?: true
             selectedCameraId = getCameraId(isRear)
@@ -493,22 +528,33 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun applyFlashSettings(builder: CaptureRequest.Builder, mode: CameraViewModel.FlashMode) {
+        val isRear = viewModel.isRearCamera.value ?: true
         when (mode) {
             CameraViewModel.FlashMode.AUTO -> {
                 builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)
                 builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
             }
             CameraViewModel.FlashMode.ON -> {
-                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
-                builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
+                if (isRear) {
+                    builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                    builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH)
+                } else {
+                    builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
+                    builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
+                }
             }
             CameraViewModel.FlashMode.OFF -> {
                 builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
                 builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
             }
             CameraViewModel.FlashMode.TORCH -> {
-                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH)
+                if (isRear) {
+                    builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                    builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH)
+                } else {
+                    builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                    builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
+                }
             }
         }
     }
@@ -1260,7 +1306,7 @@ class CameraActivity : AppCompatActivity() {
             val videoFile = File(getExternalFilesDir(null), "VID_$timeStamp.mp4")
             currentVideoFile = videoFile
 
-            val useH265Pref = prefs.getBoolean("use_h265", true)
+            val useH265Pref = prefs.getBoolean("use_h265", false)
             val useEisPref = prefs.getBoolean("use_eis", true)
 
             // Dynamic specifications lookup depending on camera directions setting

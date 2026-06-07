@@ -82,7 +82,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun setupSwitches() {
         // H.265 (HEVC) switch
-        binding.switchH265.isChecked = prefs.getBoolean("use_h265", true)
+        binding.switchH265.isChecked = prefs.getBoolean("use_h265", false)
         binding.switchH265.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("use_h265", isChecked).apply()
         }

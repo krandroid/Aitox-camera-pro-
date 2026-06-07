@@ -281,13 +281,15 @@
     <!-- SIDE/FLOATING EXPANDED ZOOM CONTROL -->
     <LinearLayout
         android:id="@+id/layZoomIndicator"
-        android:layout_width="wrap_content"
+        android:layout_width="44dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center_horizontal"
         android:layout_marginStart="12dp"
-        android:background="@drawable/bg_frosted_glass_card"
-        android:padding="6dp"
+        android:background="@drawable/bg_frosted_glass_card_translucent"
+        android:padding="4dp"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         app:layout_constraintBottom_toTopOf="@id/bottomController"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintTop_toBottomOf="@id/topBar"
