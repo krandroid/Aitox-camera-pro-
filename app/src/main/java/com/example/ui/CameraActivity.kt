@@ -95,6 +95,23 @@ class CameraActivity : AppCompatActivity() {
     private var videoRecorder: VideoRecorder? = null
     private var recordingTimer: Timer? = null
     private var recordingSeconds = 0
+    private var currentVideoFile: File? = null
+
+    private fun copyFileToUri(sourceFile: File, targetUri: Uri) {
+        try {
+            contentResolver.openOutputStream(targetUri)?.use { os ->
+                java.io.FileInputStream(sourceFile).use { fis ->
+                    val buffer = ByteArray(4096)
+                    var bytesRead: Int
+                    while (fis.read(buffer).also { bytesRead = it } != -1) {
+                        os.write(buffer, 0, bytesRead)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to copy file content to Uri: $targetUri", e)
+        }
+    }
 
     // Gestures
     private lateinit var scaleGestureDetector: ScaleGestureDetector
@@ -512,8 +529,13 @@ class CameraActivity : AppCompatActivity() {
                 }
                 binding.recIndicatorDot.startAnimation(blink)
 
-                // Stop square shutter visual
-                binding.shutterInner.setBackgroundColor(Color.parseColor("#FF0000"))
+                // Stop square shutter visual using a clean rounded-corner drawable
+                val roundedSquare = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = 8.dpToPx().toFloat()
+                    setColor(Color.parseColor("#FF0000"))
+                }
+                binding.shutterInner.background = roundedSquare
                 val lp = binding.shutterInner.layoutParams
                 lp.width = 32.dpToPx()
                 lp.height = 32.dpToPx()
@@ -530,11 +552,25 @@ class CameraActivity : AppCompatActivity() {
                 lp.height = 66.dpToPx()
                 binding.shutterInner.layoutParams = lp
                 
-                if (viewModel.currentMode.value == CameraViewModel.CameraMode.VIDEO) {
-                    binding.shutterInner.setBackgroundColor(Color.parseColor("#FF0000"))
+                val mColor = if (viewModel.currentMode.value == CameraViewModel.CameraMode.VIDEO) {
+                    Color.parseColor("#FF0000")
                 } else {
-                    binding.shutterInner.setBackgroundColor(Color.parseColor("#FFFFFF"))
+                    val currentMode = viewModel.currentMode.value
+                    if (currentMode == CameraViewModel.CameraMode.PRO) {
+                        Color.parseColor("#00E5FF")
+                    } else if (currentMode == CameraViewModel.CameraMode.NIGHT) {
+                        Color.parseColor("#FFFF33")
+                    } else if (currentMode == CameraViewModel.CameraMode.AI_EDITOR) {
+                        Color.parseColor("#00E5FF")
+                    } else {
+                        Color.parseColor("#FFFFFF")
+                    }
                 }
+                val circleBg = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                    setColor(mColor)
+                }
+                binding.shutterInner.background = circleBg
             }
         }
 
@@ -635,37 +671,52 @@ class CameraActivity : AppCompatActivity() {
         targetView.setTextColor(Color.parseColor("#00E5FF"))
         targetView.textSize = 14f
 
-        // Configure shutter outer circle & background colors
-        binding.shutterOuter.background = ContextCompat.getDrawable(this, android.R.drawable.presence_online) // circular draw fallback
-        binding.shutterOuter.backgroundTintList = ContextCompat.getColorStateList(this, android.R.color.white)
+        // Configure shutter outer circle as a clean hollow white ring
+        val outerRing = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(Color.TRANSPARENT)
+            setStroke(4.dpToPx(), Color.WHITE)
+        }
+        binding.shutterOuter.background = outerRing
+        binding.shutterOuter.backgroundTintList = null // clear tint to preserve white ring borders
+
+        // Determine specific outer and inner filling colors
+        val targetColorHex = when (mode) {
+            CameraViewModel.CameraMode.VIDEO -> "#FF0000"
+            CameraViewModel.CameraMode.PHOTO -> "#FFFFFF"
+            CameraViewModel.CameraMode.PRO -> "#00E5FF"
+            CameraViewModel.CameraMode.NIGHT -> "#FFFF33"
+            CameraViewModel.CameraMode.AI_EDITOR -> "#00E5FF"
+        }
+
+        val innerCircle = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(Color.parseColor(targetColorHex))
+        }
+        binding.shutterInner.background = innerCircle
 
         when (mode) {
             CameraViewModel.CameraMode.VIDEO -> {
-                binding.shutterInner.setBackgroundColor(Color.parseColor("#FF0000")) // Video gets red center
                 binding.badgeResolutionFps.text = "REC 4K·60"
                 binding.badgeResolutionFps.backgroundTintList = ContextCompat.getColorStateList(this, android.R.color.holo_red_dark)
                 binding.badgeRecStats.visibility = View.VISIBLE
             }
             CameraViewModel.CameraMode.PHOTO -> {
-                binding.shutterInner.setBackgroundColor(Color.parseColor("#FFFFFF"))
                 binding.badgeResolutionFps.text = "12MP·Binned"
                 binding.badgeResolutionFps.backgroundTintList = ContextCompat.getColorStateList(this, android.R.color.background_dark)
                 binding.badgeRecStats.visibility = View.GONE
             }
             CameraViewModel.CameraMode.PRO -> {
-                binding.shutterInner.setBackgroundColor(Color.parseColor("#00E5FF"))
                 binding.badgeResolutionFps.text = "50MP·RAW DNG"
                 binding.badgeResolutionFps.backgroundTintList = ContextCompat.getColorStateList(this, android.R.color.black)
                 binding.badgeRecStats.visibility = View.GONE
             }
             CameraViewModel.CameraMode.NIGHT -> {
-                binding.shutterInner.setBackgroundColor(Color.parseColor("#FFFF33"))
                 binding.badgeResolutionFps.text = "NIGHT MULTI-DR"
                 binding.badgeResolutionFps.backgroundTintList = ContextCompat.getColorStateList(this, android.R.color.holo_blue_bright)
                 binding.badgeRecStats.visibility = View.GONE
             }
             CameraViewModel.CameraMode.AI_EDITOR -> {
-                binding.shutterInner.setBackgroundColor(Color.parseColor("#00E5FF"))
                 binding.badgeResolutionFps.text = "AI DETECT ACTIVE"
                 binding.badgeResolutionFps.backgroundTintList = ContextCompat.getColorStateList(this, android.R.color.holo_purple)
                 binding.badgeRecStats.visibility = View.GONE
@@ -951,6 +1002,9 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun triggerHdrPhotoCapture() {
+        // Grab viewfinder bitmap at the moment of capture (UI thread)
+        val capturedBmp = binding.viewfinder.bitmap
+
         // Submit real Camera2 exposure compensation bracket burst captures
         val device = cameraDevice
         val session = captureSession
@@ -993,7 +1047,7 @@ class CameraActivity : AppCompatActivity() {
                         timer.cancel()
                         binding.txtProgressStatus.text = "Hold steady" // restore default label
                         Toast.makeText(this@CameraActivity, "HDR fusion complete!", Toast.LENGTH_SHORT).show()
-                        saveHdrPhoto()
+                        saveHdrPhoto(capturedBmp)
                     } else {
                         currentProg += 10
                         viewModel.updateNightProgress(currentProg)
@@ -1003,7 +1057,7 @@ class CameraActivity : AppCompatActivity() {
         }, 0, 150)
     }
 
-    private fun saveHdrPhoto() {
+    private fun saveHdrPhoto(capturedBmp: android.graphics.Bitmap?) {
         Toast.makeText(this, "Saving HDR image DCIM...", Toast.LENGTH_SHORT).show()
         backgroundHandler?.post {
             try {
@@ -1015,15 +1069,35 @@ class CameraActivity : AppCompatActivity() {
                 val bmp = android.graphics.Bitmap.createBitmap(1920, 1080, android.graphics.Bitmap.Config.ARGB_8888)
                 val canvas = android.graphics.Canvas(bmp)
                 
-                // Draw HDR stylized base gradient to simulate rich colors
-                val paint = android.graphics.Paint()
-                val lg = android.graphics.LinearGradient(
-                    0f, 0f, 1920f, 1080f,
-                    intArrayOf(Color.parseColor("#FF0F172A"), Color.parseColor("#FF1E293B"), Color.parseColor("#FF00E5FF")),
-                    null, android.graphics.Shader.TileMode.CLAMP
-                )
-                paint.shader = lg
-                canvas.drawRect(0f, 0f, 1920f, 1080f, paint)
+                if (capturedBmp != null) {
+                    // Draw original captured image scaled to fill
+                    val srcRect = android.graphics.Rect(0, 0, capturedBmp.width, capturedBmp.height)
+                    val destRect = android.graphics.Rect(0, 0, 1920, 1080)
+                    canvas.drawBitmap(capturedBmp, srcRect, destRect, null)
+                    
+                    // Draw a semi-transparent colorful gradient overlay to represent advanced multi-DR exposure fusion details
+                    val paint = android.graphics.Paint().apply {
+                        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.OVERLAY)
+                        alpha = 80 // overlay intensity
+                    }
+                    val lg = android.graphics.LinearGradient(
+                        0f, 0f, 1920f, 1080f,
+                        intArrayOf(Color.parseColor("#4000E5FF"), Color.parseColor("#00000000"), Color.parseColor("#40FF8000")),
+                        null, android.graphics.Shader.TileMode.CLAMP
+                    )
+                    paint.shader = lg
+                    canvas.drawRect(0f, 0f, 1920f, 1080f, paint)
+                } else {
+                    // Fallback stylized base gradient to simulate rich colors
+                    val paint = android.graphics.Paint()
+                    val lg = android.graphics.LinearGradient(
+                        0f, 0f, 1920f, 1080f,
+                        intArrayOf(Color.parseColor("#FF0F172A"), Color.parseColor("#FF1E293B"), Color.parseColor("#FF00E5FF")),
+                        null, android.graphics.Shader.TileMode.CLAMP
+                    )
+                    paint.shader = lg
+                    canvas.drawRect(0f, 0f, 1920f, 1080f, paint)
+                }
 
                 bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 98, fos)
                 fos.close()
@@ -1034,7 +1108,12 @@ class CameraActivity : AppCompatActivity() {
                     put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
                     put(MediaStore.Images.Media.RELATIVE_PATH, "DCIM/AitoxCamera")
                 }
-                contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                if (uri != null) {
+                    contentResolver.openOutputStream(uri)?.use { os ->
+                        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 98, os)
+                    }
+                }
 
                 runOnUiThread {
                     Toast.makeText(this@CameraActivity, "HDR photo saved: DCIM/AitoxCamera", Toast.LENGTH_SHORT).show()
@@ -1058,6 +1137,9 @@ class CameraActivity : AppCompatActivity() {
 
         Toast.makeText(this, "Capturing beautiful 50MP shot...", Toast.LENGTH_SHORT).show()
         
+        // Grab viewfinder bitmap at the moment of capture (UI thread)
+        val capturedBmp = binding.viewfinder.bitmap
+
         // Simulative image output saved into local sandbox
         backgroundHandler?.post {
             try {
@@ -1065,10 +1147,12 @@ class CameraActivity : AppCompatActivity() {
                 val imageFile = File(getExternalFilesDir(null), "IMG_$timeStamp.jpg")
                 val fos = FileOutputStream(imageFile)
                 
-                // Draw mock bitmap file payload directly
-                val bmp = android.graphics.Bitmap.createBitmap(1920, 1080, android.graphics.Bitmap.Config.ARGB_8888)
-                val canvas = android.graphics.Canvas(bmp)
-                canvas.drawColor(Color.parseColor("#FF0A0A0C"))
+                // If viewfinder bitmap is available, use it; otherwise draw fallback
+                val bmp = capturedBmp ?: android.graphics.Bitmap.createBitmap(1920, 1080, android.graphics.Bitmap.Config.ARGB_8888).apply {
+                    val canvas = android.graphics.Canvas(this)
+                    canvas.drawColor(Color.parseColor("#FF0A0A0C"))
+                }
+
                 bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, fos)
                 fos.close()
 
@@ -1078,7 +1162,12 @@ class CameraActivity : AppCompatActivity() {
                     put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
                     put(MediaStore.Images.Media.RELATIVE_PATH, "DCIM/AitoxCamera")
                 }
-                contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                if (uri != null) {
+                    contentResolver.openOutputStream(uri)?.use { os ->
+                        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, os)
+                    }
+                }
 
                 runOnUiThread {
                     Toast.makeText(this@CameraActivity, "Photo saved: DCIM/AitoxCamera", Toast.LENGTH_SHORT).show()
@@ -1115,6 +1204,7 @@ class CameraActivity : AppCompatActivity() {
         try {
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val videoFile = File(getExternalFilesDir(null), "VID_$timeStamp.mp4")
+            currentVideoFile = videoFile
 
             val useH265Pref = prefs.getBoolean("use_h265", true)
             val useEisPref = prefs.getBoolean("use_eis", true)
@@ -1170,7 +1260,12 @@ class CameraActivity : AppCompatActivity() {
             put(MediaStore.Video.Media.RELATIVE_PATH, "DCIM/AitoxCamera")
         }
         try {
-            contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+            val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+            if (uri != null) {
+                currentVideoFile?.let { sourceFile ->
+                    copyFileToUri(sourceFile, uri)
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Video insertion error.", e)
         }
