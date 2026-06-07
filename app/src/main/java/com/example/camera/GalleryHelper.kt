@@ -54,6 +54,18 @@ object GalleryHelper {
     }
 
     /**
+     * Finds the latest photo or video in the app's private external storage as a foolproof fallback.
+     */
+    fun getLastSavedFallbackFile(context: Context): java.io.File? {
+        val dir = context.getExternalFilesDir(null) ?: return null
+        val files = dir.listFiles { _, name ->
+            name.endsWith(".jpg", true) || name.endsWith(".mp4", true)
+        }
+        if (files.isNullOrEmpty()) return null
+        return files.maxByOrNull { it.lastModified() }
+    }
+
+    /**
      * Starts an Intent targeting native local photo viewer platforms
      */
     fun openGalleryAtUri(context: Context, uri: Uri?) {

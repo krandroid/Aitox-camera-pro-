@@ -68,6 +68,10 @@ class CameraActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "CameraActivity"
         private const val REQUEST_PERMISSIONS = 1001
+        private val MANDATORY_PERMISSIONS = arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
+        )
         private val REQUIRED_PERMISSIONS = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             arrayOf(
                 Manifest.permission.CAMERA,
@@ -140,6 +144,14 @@ class CameraActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Disable StrictMode FileUriExposedException to support file:// URIs in fallback intents
+        try {
+            val builder = android.os.StrictMode.VmPolicy.Builder()
+            android.os.StrictMode.setVmPolicy(builder.build())
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to disable VmPolicy check", e)
+        }
+        
         binding = ActivityCameraBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -201,7 +213,7 @@ class CameraActivity : AppCompatActivity() {
         }
     }
 
-    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
+    private fun allPermissionsGranted() = MANDATORY_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
 
@@ -312,46 +324,7 @@ class CameraActivity : AppCompatActivity() {
 
     private fun getCorrectedBitmap(capturedBmp: Bitmap?): Bitmap? {
         if (capturedBmp == null) return null
-        try {
-            val isRear = viewModel.isRearCamera.value ?: true
-            
-            // We want the output to be in portrait 9:16 aspect ratio (e.g., 1080 width, 1920 height)
-            val targetWidth = 1080
-            val targetHeight = 1920
-            
-            val outputBmp = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(outputBmp)
-            
-            val srcRect = RectF(0f, 0f, capturedBmp.width.toFloat(), capturedBmp.height.toFloat())
-            val destRect = RectF(0f, 0f, targetWidth.toFloat(), targetHeight.toFloat())
-            
-            val matrix = Matrix()
-            if (capturedBmp.width > capturedBmp.height) {
-                // Landscape source. Need to rotate!
-                val rotation = if (isRear) 90f else 270f
-                matrix.postRotate(rotation, capturedBmp.width / 2f, capturedBmp.height / 2f)
-            }
-            
-            // Mirror horizontally if front-facing selfie
-            if (!isRear) {
-                matrix.postScale(-1f, 1f, capturedBmp.width / 2f, capturedBmp.height / 2f)
-            }
-            
-            // Find rotated/mirrored bounds
-            val rotatedBounds = RectF()
-            matrix.mapRect(rotatedBounds, srcRect)
-            
-            // Map those bounds to exactly fill the target 1080x1920 viewport
-            val mapMatrix = Matrix()
-            mapMatrix.setRectToRect(rotatedBounds, destRect, Matrix.ScaleToFit.CENTER)
-            matrix.postConcat(mapMatrix)
-            
-            canvas.drawBitmap(capturedBmp, matrix, null)
-            return outputBmp
-        } catch (e: Exception) {
-            Log.e(TAG, "Error correcting bitmap aspect ratio and rotation", e)
-            return capturedBmp
-        }
+        return capturedBmp
     }
 
     private val cameraStateCallback = object : CameraDevice.StateCallback() {
@@ -1065,7 +1038,13 @@ class CameraActivity : AppCompatActivity() {
 
         // Rounded thumbnail viewer galleri opener
         binding.imgGalleryThumbnail.setOnClickListener {
-            val latest = GalleryHelper.getLastSavedMediaUri(this)
+            var latest = GalleryHelper.getLastSavedMediaUri(this)
+            if (latest == null) {
+                val fallbackFile = GalleryHelper.getLastSavedFallbackFile(this)
+                if (fallbackFile != null && fallbackFile.exists()) {
+                    latest = Uri.fromFile(fallbackFile)
+                }
+            }
             GalleryHelper.openGalleryAtUri(this, latest)
         }
 
@@ -1236,38 +1215,45 @@ class CameraActivity : AppCompatActivity() {
                 val fos = FileOutputStream(imageFile)
 
                 val correctedBmp = getCorrectedBitmap(capturedBmp)
-                // High fidelity HDR fusion representation
-                val bmp = Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888)
+                // Use original bitmap width and height to completely avoid stretching
+                val width = correctedBmp?.width ?: 1080
+                val height = correctedBmp?.height ?: 1920
+                
+                val bmp = if (correctedBmp != null) {
+                    try {
+                        correctedBmp.copy(Bitmap.Config.ARGB_8888, true)
+                    } catch (e: Exception) {
+                        Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                    }
+                } else {
+                    Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                }
+                
                 val canvas = Canvas(bmp)
                 
                 if (correctedBmp != null) {
-                    // Draw original captured image scaled to fill
-                    val srcRect = android.graphics.Rect(0, 0, correctedBmp.width, correctedBmp.height)
-                    val destRect = android.graphics.Rect(0, 0, 1080, 1920)
-                    canvas.drawBitmap(correctedBmp, srcRect, destRect, null)
-                    
                     // Draw a semi-transparent colorful gradient overlay to represent advanced multi-DR exposure fusion details
                     val paint = android.graphics.Paint().apply {
                         xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.OVERLAY)
                         alpha = 80 // overlay intensity
                     }
                     val lg = android.graphics.LinearGradient(
-                        0f, 0f, 1080f, 1920f,
+                        0f, 0f, width.toFloat(), height.toFloat(),
                         intArrayOf(Color.parseColor("#4000E5FF"), Color.parseColor("#00000000"), Color.parseColor("#40FF8000")),
                         null, android.graphics.Shader.TileMode.CLAMP
                     )
                     paint.shader = lg
-                    canvas.drawRect(0f, 0f, 1080f, 1920f, paint)
+                    canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
                 } else {
                     // Fallback stylized base gradient to simulate rich colors
                     val paint = android.graphics.Paint()
                     val lg = android.graphics.LinearGradient(
-                        0f, 0f, 1080f, 1920f,
+                        0f, 0f, width.toFloat(), height.toFloat(),
                         intArrayOf(Color.parseColor("#FF0F172A"), Color.parseColor("#FF1E293B"), Color.parseColor("#FF00E5FF")),
                         null, android.graphics.Shader.TileMode.CLAMP
                     )
                     paint.shader = lg
-                    canvas.drawRect(0f, 0f, 1080f, 1920f, paint)
+                    canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
                 }
 
                 bmp.compress(Bitmap.CompressFormat.JPEG, 98, fos)
@@ -1502,7 +1488,13 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun loadLatestThumbnail() {
-        val latestUri = GalleryHelper.getLastSavedMediaUri(this)
+        var latestUri = GalleryHelper.getLastSavedMediaUri(this)
+        if (latestUri == null) {
+            val fallbackFile = GalleryHelper.getLastSavedFallbackFile(this)
+            if (fallbackFile != null && fallbackFile.exists()) {
+                latestUri = Uri.fromFile(fallbackFile)
+            }
+        }
         if (latestUri != null) {
             Glide.with(this)
                 .load(latestUri)
