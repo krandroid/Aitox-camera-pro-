@@ -236,9 +236,30 @@ class CameraActivity : AppCompatActivity() {
 
     private fun configureTransform(viewWidth: Int, viewHeight: Int) {
         if (viewWidth <= 0 || viewHeight <= 0) return
-        val matrix = android.graphics.Matrix()
         
         val safeSize = previewSize ?: android.util.Size(1920, 1080)
+        val targetRatio = safeSize.height.toFloat() / safeSize.width.toFloat()
+        
+        val screenWidth = if (binding.cameraRoot.width > 0) binding.cameraRoot.width else viewWidth
+        val targetHeight = (screenWidth.toFloat() / targetRatio).toInt()
+        
+        val lp = binding.viewfinder.layoutParams
+        if (lp != null && (lp.height != targetHeight || lp.width != screenWidth)) {
+            lp.width = screenWidth
+            lp.height = targetHeight
+            binding.viewfinder.layoutParams = lp
+            return
+        }
+
+        val matrix = android.graphics.Matrix()
+        binding.viewfinder.setTransform(matrix)
+        
+        // Bypass the old redundant transform styling code
+        if (true) return
+
+        val oldMatrix = android.graphics.Matrix()
+        
+        val redundantSize = previewSize ?: android.util.Size(1920, 1080)
         
         // Ensure that the preview width and height are mapped correctly depending on orientation
         // Most phone sensors are landscape hardware, so width > height.
@@ -247,11 +268,11 @@ class CameraActivity : AppCompatActivity() {
         val previewWidth: Float
         val previewHeight: Float
         if (viewWidth < viewHeight) { // Portrait mode
-            previewWidth = safeSize.height.toFloat()
-            previewHeight = safeSize.width.toFloat()
+            previewWidth = redundantSize.height.toFloat()
+            previewHeight = redundantSize.width.toFloat()
         } else {
-            previewWidth = safeSize.width.toFloat()
-            previewHeight = safeSize.height.toFloat()
+            previewWidth = redundantSize.width.toFloat()
+            previewHeight = redundantSize.height.toFloat()
         }
 
         val centerX = viewWidth / 2f
@@ -961,9 +982,9 @@ class CameraActivity : AppCompatActivity() {
         val session = captureSession ?: return
         val builder = previewRequestBuilder ?: return
 
-        // Set screen flash screen coordinates for focusing indicator
-        binding.focusIndicator.x = x - (binding.focusIndicator.width / 2)
-        binding.focusIndicator.y = y - (binding.focusIndicator.height / 2)
+        // Set coordinates relative to viewfinder position on screen
+        binding.focusIndicator.x = binding.viewfinder.x + x - (binding.focusIndicator.width / 2f)
+        binding.focusIndicator.y = binding.viewfinder.y + y - (binding.focusIndicator.height / 2f)
         binding.focusIndicator.alpha = 1.0f
         binding.focusIndicator.scaleX = 1.0f
         binding.focusIndicator.scaleY = 1.0f

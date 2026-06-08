@@ -21,13 +21,13 @@
     <!-- 3x3 Composition Grid Overlay -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layGrid"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintBottom_toBottomOf="@id/viewfinder"
+        app:layout_constraintLeft_toLeftOf="@id/viewfinder"
+        app:layout_constraintRight_toRightOf="@id/viewfinder"
+        app:layout_constraintTop_toTopOf="@id/viewfinder">
 
         <!-- Horizontal lines -->
         <View
@@ -68,12 +68,12 @@
     <!-- Custom View for AI Detektor bounding boxes -->
     <com.example.ui.AiOverlayView
         android:id="@+id/aiOverlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="@id/viewfinder"
+        app:layout_constraintLeft_toLeftOf="@id/viewfinder"
+        app:layout_constraintRight_toRightOf="@id/viewfinder"
+        app:layout_constraintTop_toTopOf="@id/viewfinder" />
 
     <!-- Yellow touch-to-focus indicators -->
     <View
