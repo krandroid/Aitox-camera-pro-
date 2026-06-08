@@ -16,6 +16,11 @@ import android.graphics.Matrix
 import android.graphics.Canvas
 import android.graphics.Bitmap
 import android.graphics.SurfaceTexture
+import android.graphics.Paint
+import android.graphics.RadialGradient
+import android.graphics.Shader
+import android.graphics.PorterDuffXfermode
+import android.graphics.PorterDuff
 import com.bumptech.glide.Glide
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
@@ -378,6 +383,65 @@ class CameraActivity : AppCompatActivity() {
     private fun getCorrectedBitmap(capturedBmp: Bitmap?): Bitmap? {
         if (capturedBmp == null) return null
         return capturedBmp
+    }
+
+    private fun fastBlur(sentBitmap: Bitmap, scale: Float, radius: Int): Bitmap? {
+        val width = (sentBitmap.width * scale).toInt().coerceAtLeast(8)
+        val height = (sentBitmap.height * scale).toInt().coerceAtLeast(8)
+        val bmp = Bitmap.createScaledBitmap(sentBitmap, width, height, false) ?: return null
+        
+        val blurred = bmp.copy(bmp.config ?: Bitmap.Config.ARGB_8888, true) ?: return null
+        val w = blurred.width
+        val h = blurred.height
+        val pixels = IntArray(w * h)
+        blurred.getPixels(pixels, 0, w, 0, 0, w, h)
+        
+        // Horizontal pass
+        val tempPixels = IntArray(w * h)
+        for (y in 0 until h) {
+            val yw = y * w
+            for (x in 0 until w) {
+                var r = 0L; var g = 0L; var b = 0L; var count = 0
+                for (dx in -radius..radius) {
+                    val nx = x + dx
+                    if (nx in 0 until w) {
+                        val p = pixels[yw + nx]
+                        r += (p shr 16) and 0xFF
+                        g += (p shr 8) and 0xFF
+                        b += p and 0xFF
+                        count++
+                    }
+                }
+                tempPixels[yw + x] = (0xFF000000.toInt()) or 
+                        (((r / count).toInt() and 0xFF) shl 16) or 
+                        (((g / count).toInt() and 0xFF) shl 8) or 
+                        ((b / count).toInt() and 0xFF)
+            }
+        }
+        
+        // Vertical pass
+        for (x in 0 until w) {
+            for (y in 0 until h) {
+                var r = 0L; var g = 0L; var b = 0L; var count = 0
+                for (dy in -radius..radius) {
+                    val ny = y + dy
+                    if (ny in 0 until h) {
+                        val p = tempPixels[ny * w + x]
+                        r += (p shr 16) and 0xFF
+                        g += (p shr 8) and 0xFF
+                        b += p and 0xFF
+                        count++
+                    }
+                }
+                pixels[y * w + x] = (0xFF000000.toInt()) or 
+                        (((r / count).toInt() and 0xFF) shl 16) or 
+                        (((g / count).toInt() and 0xFF) shl 8) or 
+                        ((b / count).toInt() and 0xFF)
+            }
+        }
+        
+        blurred.setPixels(pixels, 0, w, 0, 0, w, h)
+        return Bitmap.createScaledBitmap(blurred, sentBitmap.width, sentBitmap.height, true)
     }
 
     private val cameraStateCallback = object : CameraDevice.StateCallback() {
@@ -756,6 +820,8 @@ class CameraActivity : AppCompatActivity() {
                     val currentMode = viewModel.currentMode.value
                     if (currentMode == CameraViewModel.CameraMode.PRO) {
                         Color.parseColor("#00E5FF")
+                    } else if (currentMode == CameraViewModel.CameraMode.PORTRAIT) {
+                        Color.parseColor("#FFB300")
                     } else if (currentMode == CameraViewModel.CameraMode.NIGHT) {
                         Color.parseColor("#FFFF33")
                     } else if (currentMode == CameraViewModel.CameraMode.AI_EDITOR) {
@@ -853,7 +919,7 @@ class CameraActivity : AppCompatActivity() {
 
     private fun updateUIForMode(mode: CameraViewModel.CameraMode) {
         // Highlighting current carousel selection
-        val modes = listOf(binding.modePro, binding.modeVideo, binding.modePhoto, binding.modeNight, binding.modeAiEditor)
+        val modes = listOf(binding.modePro, binding.modeVideo, binding.modePhoto, binding.modePortrait, binding.modeNight, binding.modeAiEditor)
         modes.forEach { view ->
             view.setTextColor(Color.parseColor("#80FFFFFF"))
             view.textSize = 13f
@@ -863,6 +929,7 @@ class CameraActivity : AppCompatActivity() {
             CameraViewModel.CameraMode.PRO -> binding.modePro
             CameraViewModel.CameraMode.VIDEO -> binding.modeVideo
             CameraViewModel.CameraMode.PHOTO -> binding.modePhoto
+            CameraViewModel.CameraMode.PORTRAIT -> binding.modePortrait
             CameraViewModel.CameraMode.NIGHT -> binding.modeNight
             CameraViewModel.CameraMode.AI_EDITOR -> binding.modeAiEditor
         }
@@ -883,6 +950,7 @@ class CameraActivity : AppCompatActivity() {
             CameraViewModel.CameraMode.VIDEO -> "#FF0000"
             CameraViewModel.CameraMode.PHOTO -> "#FFFFFF"
             CameraViewModel.CameraMode.PRO -> "#00E5FF"
+            CameraViewModel.CameraMode.PORTRAIT -> "#FFB300"
             CameraViewModel.CameraMode.NIGHT -> "#FFFF33"
             CameraViewModel.CameraMode.AI_EDITOR -> "#00E5FF"
         }
@@ -907,6 +975,11 @@ class CameraActivity : AppCompatActivity() {
             CameraViewModel.CameraMode.PRO -> {
                 binding.badgeResolutionFps.text = "50MP·RAW DNG"
                 binding.badgeResolutionFps.backgroundTintList = ContextCompat.getColorStateList(this, android.R.color.black)
+                binding.badgeRecStats.visibility = View.GONE
+            }
+            CameraViewModel.CameraMode.PORTRAIT -> {
+                binding.badgeResolutionFps.text = "PORTRAIT·Bokeh"
+                binding.badgeResolutionFps.backgroundTintList = ContextCompat.getColorStateList(this, android.R.color.holo_orange_dark)
                 binding.badgeRecStats.visibility = View.GONE
             }
             CameraViewModel.CameraMode.NIGHT -> {
@@ -1030,6 +1103,7 @@ class CameraActivity : AppCompatActivity() {
         binding.modePro.setOnClickListener { viewModel.setMode(CameraViewModel.CameraMode.PRO) }
         binding.modeVideo.setOnClickListener { viewModel.setMode(CameraViewModel.CameraMode.VIDEO) }
         binding.modePhoto.setOnClickListener { viewModel.setMode(CameraViewModel.CameraMode.PHOTO) }
+        binding.modePortrait.setOnClickListener { viewModel.setMode(CameraViewModel.CameraMode.PORTRAIT) }
         binding.modeNight.setOnClickListener { viewModel.setMode(CameraViewModel.CameraMode.NIGHT) }
         binding.modeAiEditor.setOnClickListener { viewModel.setMode(CameraViewModel.CameraMode.AI_EDITOR) }
 
@@ -1401,9 +1475,49 @@ class CameraActivity : AppCompatActivity() {
             
             val correctedBmp = getCorrectedBitmap(capturedBmp)
             // If viewfinder bitmap is available, use it; otherwise draw fallback
-            val bmp = correctedBmp ?: Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888).apply {
+            var bmp = correctedBmp ?: Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888).apply {
                 val canvas = Canvas(this)
                 canvas.drawColor(Color.parseColor("#FF0A0A0C"))
+            }
+
+            // Apply simulated premium Portrait Bokeh effect
+            if (viewModel.currentMode.value == CameraViewModel.CameraMode.PORTRAIT) {
+                try {
+                    val portraitBmp = Bitmap.createBitmap(bmp.width, bmp.height, bmp.config ?: Bitmap.Config.ARGB_8888)
+                    val pCanvas = Canvas(portraitBmp)
+                    pCanvas.drawBitmap(bmp, 0f, 0f, null)
+                    
+                    val blurredBmp = fastBlur(bmp, 0.15f, 4)
+                    if (blurredBmp != null) {
+                        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+                        val cx = bmp.width / 2f
+                        val cy = bmp.height / 2f
+                        val radius = Math.min(bmp.width, bmp.height) * 0.48f
+                        
+                        val shader = RadialGradient(
+                            cx, cy, radius,
+                            intArrayOf(0x00FFFFFF.toInt(), 0xFFFFFFFF.toInt()),
+                            floatArrayOf(0.35f, 1.0f),
+                            Shader.TileMode.CLAMP
+                        )
+                        paint.shader = shader
+                        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+                        
+                        val tempMasked = Bitmap.createBitmap(bmp.width, bmp.height, Bitmap.Config.ARGB_8888)
+                        val tempCanvas = Canvas(tempMasked)
+                        tempCanvas.drawBitmap(blurredBmp, 0f, 0f, null)
+                        tempCanvas.drawRect(0f, 0f, bmp.width.toFloat(), bmp.height.toFloat(), paint)
+                        
+                        pCanvas.drawBitmap(tempMasked, 0f, 0f, null)
+                        bmp = portraitBmp
+                        
+                        runOnUiThread {
+                            Toast.makeText(this@CameraActivity, "Portrait depth simulation complete!", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to apply portrait depth simulation", e)
+                }
             }
 
             bmp.compress(Bitmap.CompressFormat.JPEG, 95, fos)

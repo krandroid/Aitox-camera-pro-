@@ -12,11 +12,11 @@
     <TextureView
         android:id="@+id/viewfinder"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@id/bottomController"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/topBar" />
 
     <!-- 3x3 Composition Grid Overlay -->
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -497,6 +497,19 @@
                     android:text="PHOTO"
                     android:textColor="#00E5FF"
                     android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:paddingHorizontal="18dp"
+                    android:letterSpacing="0.1" />
+
+                <!-- PORTRAIT -->
+                <TextView
+                    android:id="@+id/modePortrait"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="PORTRAIT"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="13sp"
                     android:textStyle="bold"
                     android:gravity="center"
                     android:paddingHorizontal="18dp"

@@ -7,7 +7,7 @@ import androidx.lifecycle.ViewModel
 class CameraViewModel : ViewModel() {
 
     enum class CameraMode {
-        PRO, VIDEO, PHOTO, NIGHT, AI_EDITOR
+        PRO, VIDEO, PHOTO, PORTRAIT, NIGHT, AI_EDITOR
     }
 
     enum class FlashMode {
