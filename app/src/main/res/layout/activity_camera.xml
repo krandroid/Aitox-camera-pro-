@@ -13,10 +13,10 @@
         android:id="@+id/viewfinder"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@id/bottomController"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/topBar" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- 3x3 Composition Grid Overlay -->
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -74,6 +74,82 @@
         app:layout_constraintLeft_toLeftOf="@id/viewfinder"
         app:layout_constraintRight_toRightOf="@id/viewfinder"
         app:layout_constraintTop_toTopOf="@id/viewfinder" />
+
+    <!-- Viewfinder Overlays / Indicators (Aperture/Studio) -->
+    <LinearLayout
+        android:id="@+id/layViewfinderControls"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="horizontal"
+        android:gravity="bottom"
+        android:padding="16dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/viewfinder"
+        app:layout_constraintLeft_toLeftOf="@id/viewfinder"
+        app:layout_constraintRight_toRightOf="@id/viewfinder"
+        app:layout_constraintTop_toTopOf="@id/viewfinder"
+        tools:visibility="visible">
+
+        <!-- Left: Aperture Toggle Button (like f/2.8 badge) -->
+        <LinearLayout
+            android:id="@+id/btnApertureBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:background="@drawable/bg_frosted_glass_tag"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:id="@+id/tvApertureBadgeText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="f/2.8"
+                android:textColor="#FFB300"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Spacer -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <!-- Right: Studio Lighting Toggle / Indicator (Yellow Sparkle or Bulb Icon) -->
+        <LinearLayout
+            android:id="@+id/btnLightingBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:background="@drawable/bg_frosted_glass_tag"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:src="@drawable/ic_ai_stars"
+                app:tint="#FFB300"
+                android:layout_marginEnd="4dp"
+                android:contentDescription="Studio lighting icon" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="STUDIO"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+    </LinearLayout>
 
     <!-- Yellow touch-to-focus indicators -->
     <View
@@ -432,6 +508,74 @@
                 android:thumbTint="#FFFFFF"
                 android:paddingHorizontal="12dp" />
         </LinearLayout>
+    </LinearLayout>
+
+    <!-- PORTRAIT MODE DEPTH & BOKE BLUR CONTROLS PANEL -->
+    <LinearLayout
+        android:id="@+id/layPortraitControls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_frosted_glass_card"
+        android:padding="16dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/bottomController"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        tools:visibility="visible">
+
+        <!-- Title / Header with dynamic aperture show -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="BOKEH APERTURE"
+                android:textColor="#FFB300"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1" />
+
+            <TextView
+                android:id="@+id/tvPortraitApertureVal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="f/2.8"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_frosted_glass_tag"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp" />
+        </LinearLayout>
+
+        <!-- Dynamic Aperture Slider -->
+        <SeekBar
+            android:id="@+id/barPortraitAperture"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="8"
+            android:progress="3"
+            android:progressTint="#FFB300"
+            android:thumbTint="#FFFFFF" />
+
+        <!-- Helper guidance description -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:text="Lower f-number creates stronger, professional background blur"
+            android:textColor="#80FFFFFF"
+            android:textSize="10sp" />
     </LinearLayout>
 
     <!-- PREMIUM BOTTOM GLASSMORPHISM PANEL -->

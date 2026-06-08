@@ -108,6 +108,10 @@ class CameraActivity : AppCompatActivity() {
     // Background threads for Camera2
     private var backgroundThread: HandlerThread? = null
     private var backgroundHandler: Handler? = null
+
+    // Interactive Professional Portrait Mode settings
+    private val APERTURES = arrayOf("f/1.0", "f/1.4", "f/2.0", "f/2.8", "f/4.0", "f/5.6", "f/8.0", "f/11", "f/16")
+    private var currentApertureIdx = 3 // default f/2.8
     
     // AI Frame Analysis Image Reader
     private var imageReader: ImageReader? = null
@@ -738,7 +742,10 @@ class CameraActivity : AppCompatActivity() {
     private fun observeViewModel() {
         // Mode Updates
         viewModel.currentMode.observe(this) { mode ->
+            val isPortrait = mode == CameraViewModel.CameraMode.PORTRAIT
             binding.layProControls.visibility = if (mode == CameraViewModel.CameraMode.PRO) View.VISIBLE else View.GONE
+            binding.layViewfinderControls.visibility = if (isPortrait) View.VISIBLE else View.GONE
+            binding.layPortraitControls.visibility = View.GONE // reset slider container to hidden on mode change
             updateUIForMode(mode)
         }
 
@@ -1106,6 +1113,29 @@ class CameraActivity : AppCompatActivity() {
         binding.modePortrait.setOnClickListener { viewModel.setMode(CameraViewModel.CameraMode.PORTRAIT) }
         binding.modeNight.setOnClickListener { viewModel.setMode(CameraViewModel.CameraMode.NIGHT) }
         binding.modeAiEditor.setOnClickListener { viewModel.setMode(CameraViewModel.CameraMode.AI_EDITOR) }
+
+        // Portrait Bokeh Aperture system listeners
+        binding.btnApertureBadge.setOnClickListener {
+            val isVisible = binding.layPortraitControls.visibility == View.VISIBLE
+            binding.layPortraitControls.visibility = if (isVisible) View.GONE else View.VISIBLE
+        }
+
+        binding.btnLightingBadge.setOnClickListener {
+            Toast.makeText(this, "Studio Portrait Light enabled: 3D fill-flash optimized", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.barPortraitAperture.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser && progress in APERTURES.indices) {
+                    currentApertureIdx = progress
+                    val apText = APERTURES[progress]
+                    binding.tvPortraitApertureVal.text = apText
+                    binding.tvApertureBadgeText.text = apText
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
 
         // Settings Activity cog
         binding.btnSettings.setOnClickListener {
@@ -1483,36 +1513,53 @@ class CameraActivity : AppCompatActivity() {
             // Apply simulated premium Portrait Bokeh effect
             if (viewModel.currentMode.value == CameraViewModel.CameraMode.PORTRAIT) {
                 try {
-                    val portraitBmp = Bitmap.createBitmap(bmp.width, bmp.height, bmp.config ?: Bitmap.Config.ARGB_8888)
-                    val pCanvas = Canvas(portraitBmp)
-                    pCanvas.drawBitmap(bmp, 0f, 0f, null)
-                    
-                    val blurredBmp = fastBlur(bmp, 0.15f, 4)
-                    if (blurredBmp != null) {
-                        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-                        val cx = bmp.width / 2f
-                        val cy = bmp.height / 2f
-                        val radius = Math.min(bmp.width, bmp.height) * 0.48f
+                    val (scale, blurRadius) = when (currentApertureIdx) {
+                        0 -> Pair(0.25f, 8) // f/1.0
+                        1 -> Pair(0.22f, 7) // f/1.4
+                        2 -> Pair(0.18f, 5) // f/2.0
+                        3 -> Pair(0.15f, 4) // f/2.8 (default)
+                        4 -> Pair(0.12f, 3) // f/4.0
+                        5 -> Pair(0.08f, 2) // f/5.6
+                        6 -> Pair(0.06f, 1) // f/8.0
+                        else -> Pair(0.05f, 0) // f/11 and f/16 (virtually no blur)
+                    }
+
+                    if (blurRadius > 0) {
+                        val portraitBmp = Bitmap.createBitmap(bmp.width, bmp.height, bmp.config ?: Bitmap.Config.ARGB_8888)
+                        val pCanvas = Canvas(portraitBmp)
+                        pCanvas.drawBitmap(bmp, 0f, 0f, null)
                         
-                        val shader = RadialGradient(
-                            cx, cy, radius,
-                            intArrayOf(0x00FFFFFF.toInt(), 0xFFFFFFFF.toInt()),
-                            floatArrayOf(0.35f, 1.0f),
-                            Shader.TileMode.CLAMP
-                        )
-                        paint.shader = shader
-                        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
-                        
-                        val tempMasked = Bitmap.createBitmap(bmp.width, bmp.height, Bitmap.Config.ARGB_8888)
-                        val tempCanvas = Canvas(tempMasked)
-                        tempCanvas.drawBitmap(blurredBmp, 0f, 0f, null)
-                        tempCanvas.drawRect(0f, 0f, bmp.width.toFloat(), bmp.height.toFloat(), paint)
-                        
-                        pCanvas.drawBitmap(tempMasked, 0f, 0f, null)
-                        bmp = portraitBmp
-                        
+                        val blurredBmp = fastBlur(bmp, scale, blurRadius)
+                        if (blurredBmp != null) {
+                            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+                            val cx = bmp.width / 2f
+                            val cy = bmp.height / 2f
+                            val radius = Math.min(bmp.width, bmp.height) * 0.48f
+                            
+                            val shader = RadialGradient(
+                                cx, cy, radius,
+                                intArrayOf(0x00FFFFFF.toInt(), 0xFFFFFFFF.toInt()),
+                                floatArrayOf(0.35f, 1.0f),
+                                Shader.TileMode.CLAMP
+                            )
+                            paint.shader = shader
+                            paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+                            
+                            val tempMasked = Bitmap.createBitmap(bmp.width, bmp.height, Bitmap.Config.ARGB_8888)
+                            val tempCanvas = Canvas(tempMasked)
+                            tempCanvas.drawBitmap(blurredBmp, 0f, 0f, null)
+                            tempCanvas.drawRect(0f, 0f, bmp.width.toFloat(), bmp.height.toFloat(), paint)
+                            
+                            pCanvas.drawBitmap(tempMasked, 0f, 0f, null)
+                            bmp = portraitBmp
+                            
+                            runOnUiThread {
+                                Toast.makeText(this@CameraActivity, "Portrait depth simulation (${APERTURES[currentApertureIdx]}) complete!", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } else {
                         runOnUiThread {
-                            Toast.makeText(this@CameraActivity, "Portrait depth simulation complete!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@CameraActivity, "Portrait taken sharp (${APERTURES[currentApertureIdx]})", Toast.LENGTH_SHORT).show()
                         }
                     }
                 } catch (e: Exception) {
