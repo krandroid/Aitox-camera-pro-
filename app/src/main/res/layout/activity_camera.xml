@@ -80,7 +80,7 @@
         android:id="@+id/focusIndicator"
         android:layout_width="72dp"
         android:layout_height="72dp"
-        android:background="@android:color/transparent"
+        android:background="@drawable/bg_focus_indicator"
         android:alpha="0.0"
         android:scaleX="1.5"
         android:scaleY="1.5"

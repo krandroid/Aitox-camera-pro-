@@ -320,6 +320,10 @@ class CameraActivity : AppCompatActivity() {
                 previewSize = android.util.Size(1920, 1080)
             }
 
+            runOnUiThread {
+                configureTransform(binding.viewfinder.width, binding.viewfinder.height)
+            }
+
             cameraManager!!.openCamera(selectedCameraId, cameraStateCallback, backgroundHandler)
         } catch (e: Exception) {
             Log.e(TAG, "Cannot start sensor capture pipeline.", e)
