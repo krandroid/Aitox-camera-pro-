@@ -140,6 +140,7 @@ class CameraActivity : AppCompatActivity() {
     // Dynamic zoom multipliers
     private var maxZoomLevel = 10.0f
     private var activeSensorRect = Rect()
+    private var previewSize: android.util.Size? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -237,9 +238,21 @@ class CameraActivity : AppCompatActivity() {
         if (viewWidth <= 0 || viewHeight <= 0) return
         val matrix = android.graphics.Matrix()
         
-        // Preview is configured to 1920x1080 (landscape 16:9), which is 1080x1920 in portrait
-        val previewWidth = 1080f
-        val previewHeight = 1920f
+        val safeSize = previewSize ?: android.util.Size(1920, 1080)
+        
+        // Ensure that the preview width and height are mapped correctly depending on orientation
+        // Most phone sensors are landscape hardware, so width > height.
+        // But the screen in portrait mode is height > width.
+        // We will swap them when mapping to portrait.
+        val previewWidth: Float
+        val previewHeight: Float
+        if (viewWidth < viewHeight) { // Portrait mode
+            previewWidth = safeSize.height.toFloat()
+            previewHeight = safeSize.width.toFloat()
+        } else {
+            previewWidth = safeSize.width.toFloat()
+            previewHeight = safeSize.height.toFloat()
+        }
 
         val centerX = viewWidth / 2f
         val centerY = viewHeight / 2f
@@ -251,9 +264,11 @@ class CameraActivity : AppCompatActivity() {
         var scaleY = 1f
 
         if (viewRatio > previewRatio) {
+            // View is wider than preview (relative to its height) - e.g. tall view but extremely wide preview? Not typical in portrait.
             scaleX = 1f
             scaleY = (viewWidth.toFloat() / previewWidth) * (previewHeight / viewHeight)
         } else {
+            // Typical portrait scenario: View is taller and narrower than the preview aspect ratio
             scaleX = (viewHeight.toFloat() / previewHeight) * (previewWidth / viewWidth)
             scaleY = 1f
         }
@@ -291,6 +306,19 @@ class CameraActivity : AppCompatActivity() {
             val characteristics = cameraManager!!.getCameraCharacteristics(selectedCameraId)
             maxZoomLevel = characteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM) ?: 10.0f
             activeSensorRect = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE) ?: Rect(0, 0, 1920, 1080)
+            
+            val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            if (map != null) {
+                val sizes = map.getOutputSizes(SurfaceTexture::class.java)
+                if (sizes != null && sizes.isNotEmpty()) {
+                    // Try to find a good 16:9 or fallback to the closest match below 1920 to prevent lag
+                    previewSize = sizes.firstOrNull { it.width <= 1920 && (it.width * 9 == it.height * 16 || it.width * 3 == it.height * 4) } ?: sizes[0]
+                } else {
+                    previewSize = android.util.Size(1920, 1080)
+                }
+            } else {
+                previewSize = android.util.Size(1920, 1080)
+            }
 
             cameraManager!!.openCamera(selectedCameraId, cameraStateCallback, backgroundHandler)
         } catch (e: Exception) {
@@ -351,7 +379,8 @@ class CameraActivity : AppCompatActivity() {
             val texture = binding.viewfinder.surfaceTexture ?: return
             
             // Set dynamic display dimensions
-            texture.setDefaultBufferSize(1920, 1080)
+            val safeSize = previewSize ?: android.util.Size(1920, 1080)
+            texture.setDefaultBufferSize(safeSize.width, safeSize.height)
             val previewSurface = Surface(texture)
 
             // Setup dynamic ImageReader for NPU Pipeline parsing
@@ -405,7 +434,8 @@ class CameraActivity : AppCompatActivity() {
             captureSession = null
 
             val texture = binding.viewfinder.surfaceTexture ?: return
-            texture.setDefaultBufferSize(1920, 1080)
+            val safeSize = previewSize ?: android.util.Size(1920, 1080)
+            texture.setDefaultBufferSize(safeSize.width, safeSize.height)
             val previewSurface = Surface(texture)
 
             previewRequestBuilder = device.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
